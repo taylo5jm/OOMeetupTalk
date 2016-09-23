@@ -1,0 +1,897 @@
+Functional Object-Oriented Programming in R
+========================================================
+author: Justin Taylor
+date: 09/23/2016
+autosize: true
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Basis
+====================== 
+
+What is Object-Oriented Programming (OOP)?
+
+- A programming paradigm where data structures are modeled
+  as *objects* with *state* (attributes) and *behavior* (methods). 
+
+Why learn OOP in R?
+
+- Write reusable, organized code  
+- Handle more complex data  
+- Improvements in troubleshooting  
+- Understanding code in third-party packages  
+
+How is OOP implemented in R?
+- *Generic-<b>function</b>* calls specific *method* based on input
+- Three distinct systems: <b>S3</b>, <b>S4</b>, and Reference
+
+ Outline
+====================== 
+
+1. R Functional OO Philosophy  
+2. S3 OO System
+3. S4 OO System
+
+Packages
+=====================
+
+
+```{r}
+library(magrittr) # pipe
+library(pryr)     # OO tools
+library(methods)  # S4 functions
+library(ggplot2)
+library(foreach)  # functional construct
+set.seed(112020)
+```  
+ 
+
+Functional and Object-Oriented Programming Introduction
+====================== 
+
+
+OOP Philosophy
+====================
+
+- Structure data to accomodate computation
+- Everything is an object, and methods are functions that define relationship between objects  
+
+![car-display.jpg](car-display.jpg)
+
+
+http://www.civicx.com/attachments/37-2016-honda-civic-fd-1-jpg.5641/
+
+OO Classes
+====================  
+
+- Classes are blueprints that define attributes  
+
+![fallingwaterbp](img/38f0d062753624790e1b849fd39688dae2515354.jpg)
+
+Fallingwater Floorplan (Arsenalbubs: Creative Commons CC0 1.0 Universal Public Domain Dedication), http
+
+-----------
+
+- Instance  
+
+![fallingwaterhouse](img/FW_FALL_01.jpg)
+
+http://www.fallingwater.org/img/home_assets/FW_FALL_01.jpg
+
+Inheritance
+====================
+
+- Child classes have attributes and methods of the parent
+- General to more specific  
+  - Vehicle $\rightarrow$ Car $\rightarrow$ Civic
+  - Flora $\rightarrow$ Tree $\rightarrow$ Fir
+
+![sixchars_phylo.png](img/26_04CarnivoraPhylogeny-L.jpg)
+
+
+Functional Programming (FP)
+=====================
+- Structure computation to accomodate data
+- No side-effects  
+
+$$\huge{f(x_{1}, \dots, x_{n}) \rightarrow (y_{1}, \dots, y_{n})}$$
+
+- Inspired by lambda calculus  
+
+$$\Huge{\lambda}$$
+
+FP Example
+====================
+
+```{r}
+matrices <- foreach(i = 1:10) %do% 
+    {rnorm(9) %>% matrix(nrow = 3, ncol = 3)} 
+matrices[[1]]
+```
+
+-------------------
+
+```{r}
+Map(function(x) (x^2), matrices) %>% 
+  {Reduce("+", .)}
+```
+
+FP and OOP are Orthogonal
+=====================
+
+![scala-lang](img/mpass_screenshot1.png)
+
+FP and OOP in R
+======================
+
+- Not purely functional
+  - ex. Random number generation  
+```{r}
+.Random.seed %>% head
+```
+
+------------------
+
+<br>
+
+- Provides utilities for both FP and OOP
+
+```{r, eval = FALSE}
+?funprog
+??methods
+```
+
+R Philosophy
+====================== 
+
+- Functional object-oriented programming  
+
+"The chief motivation for introducing classes and functional methods to S was the initial application: fitting, examining and modifying diverse kinds of statistical models for data"
+
+(Chambers, 2014)  
+
+------------------------
+
+<br>
+
+- Inspired by natural language used by statisticians  
+    - "Plot" the data may mean different things for different input 
+
+$$\begin{bmatrix}
+    x_{1} \\
+    x_{2} \\
+    \vdots \\
+    x_{n}
+ \end{bmatrix} \quad
+ \begin{bmatrix}
+   x_{11} & \dots & x_{1n} \\
+   \vdots & \ddots & \vdots \\
+   x_{n1} & \dots & x_{nn}
+\end{bmatrix}$$
+
+Method Dispatch  
+====================== 
+
+- Generic functions call a specific method based on the `class` of the input argument.  
+
+![Method Dispatch Graph](img/MethodDispatch.png)
+
+---------------------
+
+### Common
+
+- Python  
+- Java  
+- C++  
+
+```{python, eval = FALSE}
+object.method(args)
+```  
+
+### Generic-Function
+
+- R  
+
+```{r, eval = FALSE}
+function(object, args)
+```
+
+
+S3 OO System
+======================
+
+S3
+====================== 
+
+- Flexible
+- No formal class definitions (instance-based)
+- Most commonly used on CRAN
+
+Generic Functions and Methods  
+======================   
+  
+- S3 methods written in the form `generic.class`.  
+
+```{r}
+mean
+mean.Date
+```
+
+-------------------
+
+<br>
+
+`mean(numeric)` calls `mean.default` 
+
+```{r}
+x <- c(4, 2, 2, 2, 1)
+mean(x)
+```
+
+`mean(Date)` calls `mean.Date`  
+
+```{r}
+x <- rep(Sys.Date(), 4)
+mean(x)
+```
+
+
+Writing a Method for a Generic Function
+======================  
+
+```{r}
+x <- list(2, 3, 4)
+x
+```
+
+```{r}
+mean.list <- function(x) {Reduce("+", x) / length(x)}
+mean(x)
+```
+
+Method Dispatch
+======================  
+
+- Dispatches on <b>first</b> element of `class` vector.  
+
+```{r}
+e <- rnorm(1000) %>% ecdf 
+# draw 1000 samples from N(0, 1)
+# get ECDF
+class(e)
+```
+
+
+----------------------
+
+<br>
+
+```{r}
+plot(e) # calls plot.ecdf()
+```
+
+
+Identifying Generic Functions
+======================
+
+- Look for `UseMethod` in the definition 
+
+```{r}
+plot
+```
+
+- Use `pryr::ftype`  
+
+```{r}
+ftype(plot)
+```
+
+- Show methods for a generic  
+
+```{r}
+methods(plot) %>% head
+```
+
+Identifying a S3 Object  
+======================  
+
+- `pryr::otype`
+
+- `factor`  
+```{r}
+factor(1, 2) %>% otype
+```
+
+- `data.frame`  
+```{r}
+data.frame(a = c(1, 2)) %>% otype
+```
+
+Creating a S3 Object
+====================== 
+
+At initialization:  
+```{r}
+stock <- structure(list(), 
+                   class = "stock")
+```
+
+```{r}
+class(stock)
+```
+
+------------------------
+
+<br>
+
+After initialization
+```{r}
+stock <- list()
+class(stock) <- "stock"
+class(stock)
+```
+
+Constructor Functions
+====================== 
+
+- Should have same name as object and return object of class
+- Provide guidelines for creating an object  
+
+```{r}
+#' Constructor function for stock S3 object
+#' 
+#' @param ticker Character vector of length one for ticker
+#' @param price Numeric vector of length one for price
+#' @return stock object with ticker and price attributes
+#' 
+stock <- function(ticker, price) {
+  stopifnot(is.character(ticker), 
+            is.numeric(price))
+  structure(list(
+                 ticker = ticker,
+                 price = price),
+            class = "stock")
+}
+```
+
+
+Initializing a S3 Object with Constructor Function
+======================
+
+
+```{r}
+my_stock <- stock(ticker = "TICKERX", 
+                  price = 42.00)
+class(my_stock)
+pryr::otype(my_stock)
+```  
+
+
+```{r, echo = FALSE}
+stockOption <- function(ticker, spot_price, strike_price, type) {
+  structure(list(ticker = ticker,
+                 spot_price = spot_price,
+                 strike_price = strike_price,
+                 type = type),
+            class = "stock")
+}
+```
+
+```{r, echo = FALSE, results = 'hide'}
+option <- stockOption(ticker = "TICKERX", 
+                      spot_price = 45.00, 
+                      strike_price = 50.00, 
+                      type = "call")
+```
+
+```{r, echo = FALSE, results = 'hide'}
+class(option)
+```
+
+```{r, echo = FALSE, results = 'hide'}
+pryr::otype(option)
+```
+
+Simulate 1-D Random Walk
+======================   
+
+```{r}
+walk <- sample(c(-1, 1), 1000, TRUE) %>% cumsum 
+```
+
+```{r}
+qplot(x = 1:length(walk), y = walk, geom = "line") + 
+  theme_bw() +
+  ylab("Close (USD)") + xlab("Day") +
+  ggtitle("Simulated Close for Security X")
+```
+
+Writing Functions and Methods
+====================== 
+
+- Generic function
+
+```{r}
+random_walk <- function(x) { UseMethod("random_walk")}
+```
+
+- Method for one-dimensional random walk
+
+```{r}
+random_walk.stock <- function(x) {
+  walk <- sample(c(-1, 1), 1000, TRUE) %>% cumsum + x$price
+  walk
+}
+```
+
+```{r}
+random_walk(my_stock) %>% head
+```
+
+Default Methods
+======================
+
+`generic.default` is called when no method is defined for an object  
+
+```{r}
+random_walk.default <- function(n=1000) {
+  sample(c(-1, 1), n, TRUE) %>% cumsum
+}
+```
+
+```{r}
+random_walk(1000) %>% head
+```
+
+Attributes can be added
+======================  
+
+```{r}
+names(my_stock)
+```
+
+- Call `random_walk` function and set result to new attribute  
+```{r}
+my_stock$walk <- random_walk(my_stock)
+head(my_stock$walk)
+```
+
+```{r}
+names(my_stock)
+```
+
+
+
+Writing a Plot Method
+======================
+
+```{r}
+#' Plot 1-dimensional Brownian motion simulated for a given security
+#'
+#' @param x A list with a numeric vector of length n named `walk`
+#' @return 1-dimensional time series plot with base R graphics
+
+plot.stock <- function(x) {
+  plot(x$walk, type = "l", 
+       main = paste("Simulated Random Walk for ", 
+                    x$ticker, " Close"),
+       ylab = "Price (USD)",
+       xlab = "Day")
+}
+```
+
+Writing a Plot Method
+====================== 
+
+```{r}
+plot(my_stock)
+```
+
+Simple Inheritance
+======================  
+
+```{r}
+a <- structure(list(), class = c("turkey", "bird"))
+move <- function(x) { UseMethod("move")}
+```
+
+`NextMethod` dispatches on *2nd* element in `class` vector  
+```{r}
+move.bird <- function(x) "fly"
+move.turkey <- function(x) { NextMethod()}
+move.default <- function(x) "hop"
+```
+
+```{r}
+move(a)
+```
+
+
+
+S4 System  
+====================== 
+
+S4 System
+====================== 
+
+### History  
+
+- First implemented in S in 1998
+- Implemented in R in 2000
+
+### Characteristics  
+
+- Possible attributes are immutable
+- Extends method dispatch to > 1 argument
+- Class-based  
+
+Formal, more overhead
+
+Example of an S4 Object
+=======================
+
+An S4 object must have a name and list of attributes (slots)  
+
+```{r}
+library(Biobase)
+load("data/eset.Rda")
+class(eset)
+pryr::otype(eset)
+isS4(eset)
+```
+
+
+Defining a S4 Class
+====================== 
+
+- Use `setClass` to define a S4 class
+
+```{r}
+setClass("Security", 
+         representation(
+           price = "numeric")
+         )
+```
+
+- Use `new` to initialize a S4 object  
+
+```{r}
+securityx <- new("Security", price = 42.00)
+```
+
+Accessing a S4 Object  
+=======================  
+
+- `getSlots` will show attributes and types
+
+```{r}
+getSlots("Security")
+```
+
+- Use `@` to access attributes  
+
+```{r}
+securityx@price
+```
+
+-------------------------
+
+
+
+
+
+Defining a S4 Class 
+=======================
+
+The `prototype` argument allows for default attributes  
+
+```{r}
+setClass("Security", 
+         representation(
+           price = "numeric"),
+         prototype(price = NA_real_)
+         )
+```
+
+Initializing a S4 Class with Default Arguments
+=====================
+
+Initialize object with `new`  
+
+```{r}
+securityx <- new("Security")
+```
+
+```{r}
+securityx
+```
+
+Ensuring Class Validity  
+======================   
+
+- Write a function that takes an `object` as output
+  - If the object is valid, return TRUE
+  - Else, return character vector with errors
+
+```{r}
+validate_security <- function(object) {
+  errors <- vector("character", 0)
+  if (object@price < 0) {
+    errors <- c(errors, "Stock must have price on the interval [0, Inf)")
+  }
+  if (length(object@price) > 1) {
+    errors <- c(errors, "Stock must only have one closing price")
+  }
+  if (length(errors) == 0) TRUE else errors
+}
+```
+
+Ensuring Class Validity  
+=======================  
+
+`validity` argument is set to the function to validate input
+
+```{r}
+setClass("Security", 
+         representation(
+           price = "numeric"),
+         prototype(price = NA_real_),
+         validity = validate_security
+         )
+```
+
+```{r, eval = FALSE}
+new("Security", price = c(-42.00, 1.00)) # raises exception
+```
+
+S4 Inheritance
+======================   
+
+- `contains` argument allows for inheritance  
+
+```{r}
+setClass("Stock",
+         representation(
+           ticker = "character"
+         ),
+         contains = "Security")
+```
+
+```{r}
+stockx <- new("Stock", price = 42.00, 
+              ticker = "tickerx")
+```
+
+- Child class inherits `slots` from parent.  
+
+```{r}
+getSlots("Stock")
+```
+
+S4 Inheritance
+======================   
+
+A security is a tradeable asset.  
+
+```{r}
+setClass("Security", representation(
+  price = "numeric",
+  name = "character"))
+```
+
+A stock is a tradeable unit of ownership in a company.  
+
+```{r}
+setClass("Stock", representation(
+  ticker = "character",
+  walk = "numeric"), 
+  contains = "Security")
+```
+
+An option is a contract to trade a unit of ownership in the future.  
+
+```{r}
+setClass("Option", representation(
+  expiration_date = "Date",
+  spot_price = "numeric",
+  strike_prike = "numeric"),
+  contains = "Stock")
+```
+
+S4 Generic Functions
+====================== 
+
+- `setGeneric` creates new S4 generic function
+    - `valueClass` specifies expected output type
+    - `standardGeneric` if function does not yet exist
+
+```{r, eval = FALSE}
+setGeneric("random_walk", valueClass = "numeric",
+           function(object) {
+               standardGeneric("random_walk")
+})
+```
+
+- `setMethod` creates a new S4 method
+
+```{r}
+setMethod("random_walk", signature("Stock"), 
+          function(object) {
+              sample(c(-1, 1), 1000, TRUE) %>% 
+              cumsum + object@price
+})
+```
+
+S4 Method Dispatch
+======================   
+
+```{r}
+stockx <- new("Stock", ticker = "TICKERX", walk = vector("numeric", 0),
+              price = 42.0)
+```
+
+```{r}
+random_walk(stockx) %>% head
+```
+
+
+S4 Multiple Dispatch  
+====================== 
+
+- Method is chosen based on arbitrary combinations of arguments.  
+
+```{r}
+setGeneric("plot_security",
+           function(stock, ndays) {
+             standardGeneric("plot_security")
+           })
+```
+
+
+```{r}
+setMethod("plot_security", 
+          signature("Stock", "numeric"), 
+          function(stock, ndays) {
+            p <- qplot(x = seq(1, ndays), 
+                       y = stock@walk[1:ndays], 
+                       geom = "line") +
+                ylab("Close (USD)") + xlab("Day") + 
+                theme_bw() +
+                ggtitle(paste0(
+                  "Simulated 1-D Random Walk for ", stock@ticker))
+            invisible(p)
+})
+```
+
+S4 Plotting Method
+=======================
+
+```{r, echo = FALSE}
+stockx@walk <- random_walk(stockx)
+```
+
+```{r}
+p <- plot_security(stockx, 500)
+```
+
+-------------------
+
+```{r}
+p
+```
+
+Notes on Method Dispatch in S4
+=========================  
+
+- Use `missing` in the signature to call method when argument is not provided
+- Use `ANY` for default method
+- When `signature` does not match the provided arguments, pick method most similar to provided arguments  
+
+Exposing S4 Attributes
+=========================
+
+- Discourage users from using `@` to access attributes
+
+```{r}
+stockx@walk <- random_walk(stockx)
+```
+
+- Instead, write accessors to expose attributes
+
+```{r}
+#' Get ticker slot for S4 Stock object
+#'
+#' @param stock Stock object
+#' @return ticker Character vector of length one
+
+ticker <- function(stock) {
+  stopifnot(class(stock)[1] == "Stock")
+  stock@ticker
+}
+```
+
+```{r}
+ticker(stockx)
+```
+
+Mixing Systems
+=====================
+
+- S4 Methods can be exposed to S3 classes with `setOldClass("s3class")`
+- Google says no, R asks why not?
+
+```{r}
+setOldClass("stock")
+setMethod("plot_security", signature("stock"),
+          function(stock) {
+            plot(x = 1:length(stock$walk), 
+                 y = stock$walk, 
+                 type = "l")
+          })
+```
+
+-----------------------
+
+```{r}
+plot_security(my_stock)
+```
+
+Reference Classes
+======================   
+
+- Encapsulated OOP
+- Mutable state
+- Objects implicitly available to methods  
+
+![java-logo](img/Java_logo-2.jpg)
+
+S3 vs. S4
+======================   
+
+### S3
+
+- Not as much software needs to be written
+- Reliability is not as important
+- Scope of data or methods is narrower or not clearly defined
+- Flexibility desired  
+
+-------
+
+### S4
+
+- Lots of software required  
+- Reliability and code safety is important
+- Scope of data or methods is wide
+- Code that utilizes existing Bioconductor functions   
+
+
+References
+====================== 
+
+R Language Definition Chapter 5: 
+Object-Oriented Programming  
+https://cran.r-project.org/
+
+Advanced R
+Hadley Wickham
+Chapman & Hall/CRC The R Series
+ISBN-13: 978-1466586963
+http://adv-r.had.co.nz/
+
+Object-Oriented Programming, Functional Programming and R  
+John M. Chambers  
+2014 Vol. 29 No. 2 167-180  
+DOI: 10.1214/13-STS452  
+Retrieved from https://arxiv.org/pdf/1409.3531v1.pdf on 9/19/2016   
+
+
+
+Session Info
+====================== 
+
+```{r}
+sessionInfo()
+```
